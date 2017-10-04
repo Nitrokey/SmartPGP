@@ -299,7 +299,7 @@ def put_aes_key(connection, key):
 def encrypt_aes(connection, msg):
     ins_p1_p2 = [0x2A, 0x86, 0x80]
     i = 0
-    cl = 255
+    cl = 16
     l = len(msg)
     while i < l:
         if (l - i) <= cl:
@@ -307,7 +307,7 @@ def encrypt_aes(connection, msg):
             data = msg[i:]
             i = l
         else:
-            cla = 0x10
+            cla = 0x00
             data = msg[i:i+cl]
             i = i + cl
         apdu = assemble_with_len([cla] + ins_p1_p2, data)
