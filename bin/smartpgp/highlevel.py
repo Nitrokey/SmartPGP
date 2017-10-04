@@ -274,6 +274,8 @@ class CardConnectionContext:
         self.verify_user_pin()
         (data,_,_) = encrypt_aes(self.connection, data)
         data = "".join([chr(c) for c in data])
+        if not data:
+            print('Device returned no data. Make sure you have written AES key to it.')
         with open(self.output, 'w') as f:
             f.write(data)
             f.close()
@@ -293,6 +295,8 @@ class CardConnectionContext:
         self.verify_user_pin()
         (data,_,_) = decrypt_aes(self.connection, data)
         data = "".join([chr(c) for c in data])
+        if not data:
+            print('Device returned no data. Make sure you have written AES key to it.')
         with open(self.output, 'w') as f:
             f.write(data)
             f.close()

@@ -111,11 +111,12 @@ def encode_len(data):
     return l
 
 def _raw_send_apdu(connection, text, apdu):
-    print "%s" % text
-    #print ' '.join('{:02X}'.format(c) for c in apdu)
+    print
+    print text
+    print "Sending APDU:", ' '.join('{:02X}'.format(c) for c in apdu)
     (data, sw1, sw2) = connection.transmit(apdu)
     #print ' '.join('{:02X}'.format(c) for c in data)
-    print "%02X %02X" % (sw1, sw2)
+    print "Returned: %02X %02X (data len %d)" % (sw1, sw2, len(data))
     return (data,sw1,sw2)
 
 def list_readers():
