@@ -38,7 +38,7 @@ class CardConnectionContext:
 
     def __init__(self):
         self.reader_index = 0
-        self.admin_pin = "123456"
+        self.user_pin = "123456"
         self.admin_pin = "12345678"
         self.connection = None
         self.read_pin = self._default_pin_read_function
