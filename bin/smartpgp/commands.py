@@ -130,6 +130,8 @@ def list_readers():
 
 def select_reader(reader_index):
     reader_list = readers()
+    if not reader_list:
+        raise NoCardException
     r = reader_list[reader_index]
     conn = r.createConnection()
     conn.connect()
