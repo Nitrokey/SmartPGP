@@ -250,11 +250,14 @@ class CardConnectionContext:
     def cmd_put_aes_key(self):
         if self.input is None:
             print "No input AES key file"
-            return
-        f = open(self.input, 'r')
-        key = f.read()
-        key = [ord(c) for c in key]
-        f.close()
+            print "Generating AES key on-the-fly"
+            key = urandom(16)
+            key = [ord(c) for c in key]
+            print "Setting key to %d bytes" % len(key), key
+        else:
+            with open(self.input, 'r') as f:
+                key = f.read()
+                key = [ord(c) for c in key]
         self.connect()
         self.verify_admin_pin()
         put_aes_key(self.connection, key)
