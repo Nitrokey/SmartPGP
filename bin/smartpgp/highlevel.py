@@ -17,12 +17,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-from commands import *
-
 import binascii
-import pyasn1
+from os import urandom
+
+from commands import *
+from pyasn1.codec.der import encoder as der_encoder, decoder as der_decoder
 from pyasn1.type import univ
-from pyasn1.codec.der import encoder as der_encoder,decoder as der_decoder
+
 
 class ConnectionFailed(Exception):
     pass
@@ -281,8 +282,31 @@ class CardConnectionContext:
             print('Device returned no data. Make sure you have written AES key to it.')
         with open(self.output, 'w') as f:
             f.write(data)
-            f.close()
- 
+
+    def cmd_aes_test(self):
+        from smartcard.ATR import ATR
+
+
+        key_ = urandom(16)
+        key = [ord(c) for c in key_]
+        self.connect()
+        self.verify_admin_pin()
+        put_aes_key(self.connection, key)
+
+        plaintext = 'testabcdefgh'.center(16,'=')
+        from Crypto.Cipher import AES
+        from Crypto import Random
+        cipher = AES.new(key_)
+        data = cipher.encrypt(plaintext)
+        data = [ord(c) for c in data]
+
+        self.verify_admin_pin()
+        (data,_,_) = decrypt_aes(self.connection, data)
+        print data, plaintext
+        print ''
+        print AES.block_size
+        assert data == plaintext
+
     def cmd_decrypt_aes(self):
         if self.input is None:
             print "No input data file"
