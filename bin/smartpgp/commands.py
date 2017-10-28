@@ -116,7 +116,20 @@ def _raw_send_apdu(connection, text, apdu):
     print "Sending APDU:", ' '.join('{:02X}'.format(c) for c in apdu)
     (data, sw1, sw2) = connection.transmit(apdu)
     #print ' '.join('{:02X}'.format(c) for c in data)
-    print "Returned: %02X %02X (data len %d)" % (sw1, sw2, len(data))
+    codes = {
+        (0x69,0x82) : 'Security status not satisfied. PW wrong. PW not checked (command not allowed). Secure messaging incorrect (checksum and/or cryptogram)',
+        (0x90,0x00) : 'Success',
+        (0x6B,0x00) : 'Wrong parameters P1-P2',
+        (0x67,0x00) : 'Wrong length (Lc and/or Le)',
+        (0x6A,0x88) : 'Referenced data not found',
+        (0x68,0x82) : 'Secure messaging not supported',
+    }
+
+    print "Returned: %02X %02X (data len %d) %s" % (sw1, sw2, len(data), codes.get((sw1, sw2), 'Unknown return code'))
+    from smartcard.sw.ISO7816_4ErrorChecker import ISO7816_4ErrorChecker
+    errorchecker = ISO7816_4ErrorChecker()
+    errorchecker([], sw1, sw2)
+
     return (data,sw1,sw2)
 
 def list_readers():
@@ -298,6 +311,18 @@ def put_aes_key(connection, key):
     apdu = assemble_with_len(prefix, data)
     _raw_send_apdu(connection,"Put AES key",apdu)
 
+
+def get_info(connection, DO=None, length=16):
+    if DO is None:
+        DO = [0x00, 0xc0]
+        # DO = [0x5F, 0x52]
+        length = 10
+    command = [0x0, 0xca] + DO + [length]
+    apdu = command
+    (data, sw1, sw2) = _raw_send_apdu(connection, "Get info object", apdu)
+    return (data[:-2],sw1,sw2)
+
+
 def encrypt_aes(connection, msg):
     ins_p1_p2 = [0x2A, 0x86, 0x80]
     i = 0
@@ -309,7 +334,7 @@ def encrypt_aes(connection, msg):
             data = msg[i:]
             i = l
         else:
-            cla = 0x00
+            cla = 0x10
             data = msg[i:i+cl]
             i = i + cl
         apdu = assemble_with_len([cla] + ins_p1_p2, data)
@@ -327,6 +352,7 @@ def decrypt_aes(connection, msg):
     cl = 255
     msg = [0x02] + msg
     l = len(msg)
+    print "Lenght of msg: {}".format(l)
     while i < l:
         if (l - i) <= cl:
             cla = 0x00
@@ -336,7 +362,7 @@ def decrypt_aes(connection, msg):
             cla = 0x10
             data = msg[i:i+cl]
             i = i + cl
-        apdu = assemble_with_len([cla] + ins_p1_p2, data)
+        apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
         (res,sw1,sw2) = _raw_send_apdu(connection,"Decrypt AES chunk",apdu)
         while sw1 == 0x61:
             apdu = [0x00, 0xC0, 0x00, 0x00, sw2]

@@ -47,14 +47,16 @@ class CardConnectionContext:
         self.input = None
 
     def _default_pin_read_function(self, pin_type):
-        return self.admin_pin
+        pin = {'User': self.user_pin,
+         'Admin': self.admin_pin}
+        return pin[pin_type]
 
     def set_pin_read_function(self, fun):
         self.read_pin = fun
 
     def verify_admin_pin(self):
-        if self.verified:
-            return
+        # if self.verified:
+        #     return
         admin_pin = self.read_pin("Admin")
         (_,sw1,sw2)=verif_admin_pin(self.connection, admin_pin)
         if sw1==0x90 and sw2==0x00:
@@ -63,8 +65,8 @@ class CardConnectionContext:
             raise AdminPINFailed
 
     def verify_user_pin(self):
-        if self.verified:
-            return
+        # if self.verified:
+        #     return
         user_pin = self.read_pin("User")
         (_,sw1,sw2)=verif_user_pin(self.connection, user_pin)
         if sw1==0x90 and sw2==0x00:
@@ -272,6 +274,7 @@ class CardConnectionContext:
             return
         f = open(self.input, 'r')
         data = f.read()
+        data = data.center(16, '=')
         data = [ord(c) for c in data]
         f.close()
         self.connect()
@@ -283,28 +286,41 @@ class CardConnectionContext:
         with open(self.output, 'w') as f:
             f.write(data)
 
-    def cmd_aes_test(self):
-        from smartcard.ATR import ATR
+    def cmd_show_info(self):
+        self.connect()
+        self.verify_admin_pin()
+        info = get_info(self.connection)
+        print info
 
+    def cmd_aes_test(self):
+        from smartcard.util import HexListToBinString, BinStringToHexList
+        from smartcard.ATR import ATR
+        plaintext = 'testabcdefgh'.center(16,'=')
 
         key_ = urandom(16)
         key = [ord(c) for c in key_]
+
         self.connect()
         self.verify_admin_pin()
         put_aes_key(self.connection, key)
 
-        plaintext = 'testabcdefgh'.center(16,'=')
         from Crypto.Cipher import AES
         from Crypto import Random
         cipher = AES.new(key_)
         data = cipher.encrypt(plaintext)
         data = [ord(c) for c in data]
 
-        self.verify_admin_pin()
+        # plaintext = [ ord(c) for c in plaintext ]
+        # (data,_,_) = encrypt_aes(self.connection, plaintext)
+
+
+        # self.verify_admin_pin()
+        self.verify_user_pin()
         (data,_,_) = decrypt_aes(self.connection, data)
-        print data, plaintext
-        print ''
-        print AES.block_size
+        data = HexListToBinString(data)
+        print repr( (data, plaintext))
+        print repr('')
+        # print AES.block_size
         assert data == plaintext
 
     def cmd_decrypt_aes(self):
