@@ -20,7 +20,7 @@
 
 from smartcard.Exceptions import NoCardException
 from smartcard.System import readers
-from smartcard.util import toHexString
+from smartcard.util import toHexString, BinStringToHexList, HexListToBinString
 
 import struct
 
@@ -323,13 +323,26 @@ def get_info(connection, DO=None, length=16):
     (data, sw1, sw2) = _raw_send_apdu(connection, "Get info object", apdu)
     return (data[:-2],sw1,sw2)
 
+def round_to_multiply_of_ceil(value, m=16):
+    return int(value) - int(value) % int(m) + m
 
 def encrypt_aes(connection, msg):
     data_to_return = []
     ins_p1_p2 = [0x2A, 0x86, 0x80]
     i = 0
     cl = 240
+
+    # write original msg length
     l = len(msg)
+    lp = struct.pack('!Q', l) # content size in 8 bytes unsigned long long, network (= big-endian)
+    assert (len(lp) == 8)
+    lp = BinStringToHexList(lp)
+    data_to_return = lp
+
+    # pad with '0's to size being multiply of 16
+    l_rounded = round_to_multiply_of_ceil(l, 16) - l
+    msg += [0]*l_rounded
+
     while i < l:
         if (l - i) <= cl:
             cla = 0x00
@@ -339,6 +352,7 @@ def encrypt_aes(connection, msg):
             cla = 0x00
             data = msg[i:i+cl]
             i = i + cl
+        print "Lenght of data sent: {}".format(len(data))
         apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
         (res,sw1,sw2) = _raw_send_apdu(connection,"Encrypt AES chunk",apdu)
         res = res[1:]
@@ -356,6 +370,8 @@ def decrypt_aes(connection, msg):
     ins_p1_p2 = [0x2A, 0x80, 0x86]
     i = 0
     cl = 240
+    original_l = struct.unpack('!Q', HexListToBinString(msg[:8]))[0]
+    msg = msg[8:]
     l = len(msg)
     print "Lenght of msg: {}".format(l)
     while i < l:
@@ -377,4 +393,5 @@ def decrypt_aes(connection, msg):
             apdu = [0x00, 0xC0, 0x00, 0x00, sw2]
             (nres,sw1,sw2) = _raw_send_apdu(connection,"Receiving decrypted chunk",apdu)
             data_to_return = data_to_return + nres
+    data_to_return = data_to_return[:original_l] # trim to original size
     return (data_to_return,sw1,sw2)
