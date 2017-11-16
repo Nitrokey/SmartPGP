@@ -272,18 +272,18 @@ class CardConnectionContext:
         if self.output is None:
             print "No output data file"
             return
-        f = open(self.input, 'r')
-        data = f.read()
+        with open(self.input, 'rb') as f:
+            data = f.read()
         data = data.center(16, '=')
         data = [ord(c) for c in data]
-        f.close()
         self.connect()
         self.verify_user_pin()
         (data,_,_) = encrypt_aes(self.connection, data)
         data = "".join([chr(c) for c in data])
         if not data:
             print('Device returned no data. Make sure you have written AES key to it.')
-        with open(self.output, 'w') as f:
+        with open(self.output, 'wb') as f:
+            print('Writing {} bytes'.format(len(data)))
             f.write(data)
 
     def cmd_show_info(self):
@@ -358,17 +358,15 @@ class CardConnectionContext:
         if self.output is None:
             print "No output data file"
             return
-        f = open(self.input, 'r')
-        data = f.read()
+        with open(self.input, 'rb') as f:
+            data = f.read()
         data = [ord(c) for c in data]
-        f.close()
         self.connect()
         self.verify_user_pin()
         (data,_,_) = decrypt_aes(self.connection, data)
         data = "".join([chr(c) for c in data])
         if not data:
             print('Device returned no data. Make sure you have written AES key to it.')
-        with open(self.output, 'w') as f:
+        with open(self.output, 'wb') as f:
             f.write(data)
-            f.close()
- 
+

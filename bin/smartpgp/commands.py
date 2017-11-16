@@ -325,10 +325,10 @@ def get_info(connection, DO=None, length=16):
 
 
 def encrypt_aes(connection, msg):
+    data_to_return = []
     ins_p1_p2 = [0x2A, 0x86, 0x80]
-    # msg = [0x02] + msg
     i = 0
-    cl = 16
+    cl = 240
     l = len(msg)
     while i < l:
         if (l - i) <= cl:
@@ -341,18 +341,21 @@ def encrypt_aes(connection, msg):
             i = i + cl
         apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
         (res,sw1,sw2) = _raw_send_apdu(connection,"Encrypt AES chunk",apdu)
+        res = res[1:]
+        print "Lenght of data: {}".format(len(res))
+        data_to_return = data_to_return + res
         while sw1 == 0x61:
             apdu = [0x00, 0xC0, 0x00, 0x00, sw2]
             (nres,sw1,sw2) = _raw_send_apdu(connection,"Receiving encrypted chunk",apdu)
-            res = res + nres
-    return (res[1:],sw1,sw2)
+            data_to_return = data_to_return + nres
+    return (data_to_return,sw1,sw2)
 
 
 def decrypt_aes(connection, msg):
+    data_to_return = []
     ins_p1_p2 = [0x2A, 0x80, 0x86]
     i = 0
-    cl = 255
-    msg = [0x02] + msg
+    cl = 240
     l = len(msg)
     print "Lenght of msg: {}".format(l)
     while i < l:
@@ -361,13 +364,17 @@ def decrypt_aes(connection, msg):
             data = msg[i:]
             i = l
         else:
-            cla = 0x10
+            cla = 0x00
             data = msg[i:i+cl]
             i = i + cl
+
+        data = [0x02] + data
+        print "Lenght of data: {}".format(len(data))
         apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
         (res,sw1,sw2) = _raw_send_apdu(connection,"Decrypt AES chunk",apdu)
+        data_to_return = data_to_return + res
         while sw1 == 0x61:
             apdu = [0x00, 0xC0, 0x00, 0x00, sw2]
             (nres,sw1,sw2) = _raw_send_apdu(connection,"Receiving decrypted chunk",apdu)
-            res = res + nres
-    return (res,sw1,sw2)
+            data_to_return = data_to_return + nres
+    return (data_to_return,sw1,sw2)
