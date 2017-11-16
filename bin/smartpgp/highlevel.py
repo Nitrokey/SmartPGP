@@ -323,6 +323,34 @@ class CardConnectionContext:
         # print AES.block_size
         assert data == plaintext
 
+    def cmd_aes_test2(self):
+        from smartcard.util import HexListToBinString, BinStringToHexList
+        from smartcard.ATR import ATR
+        plaintext_o = 'testabcdefgh'.center(16, '=')
+
+        key_ = urandom(16)
+        key = [ord(c) for c in key_]
+
+        self.connect()
+        self.verify_admin_pin()
+        put_aes_key(self.connection, key)
+
+        from Crypto.Cipher import AES
+        from Crypto import Random
+
+        plaintext = [ ord(c) for c in plaintext_o ]
+        self.verify_user_pin()
+        (data,_,_) = encrypt_aes(self.connection, plaintext)
+
+
+        self.verify_user_pin()
+        (data, _, _) = decrypt_aes(self.connection, data)
+        data = HexListToBinString(data)
+        print repr((data, plaintext_o))
+        print repr('')
+        # print AES.block_size
+        assert data == plaintext_o
+
     def cmd_decrypt_aes(self):
         if self.input is None:
             print "No input data file"

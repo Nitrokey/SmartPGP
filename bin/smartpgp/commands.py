@@ -123,6 +123,7 @@ def _raw_send_apdu(connection, text, apdu):
         (0x67,0x00) : 'Wrong length (Lc and/or Le)',
         (0x6A,0x88) : 'Referenced data not found',
         (0x68,0x82) : 'Secure messaging not supported',
+        (0x68,0x84) : 'Command chaining not supported',
     }
 
     print "Returned: %02X %02X (data len %d) %s" % (sw1, sw2, len(data), codes.get((sw1, sw2), 'Unknown return code'))
@@ -325,6 +326,7 @@ def get_info(connection, DO=None, length=16):
 
 def encrypt_aes(connection, msg):
     ins_p1_p2 = [0x2A, 0x86, 0x80]
+    # msg = [0x02] + msg
     i = 0
     cl = 16
     l = len(msg)
@@ -334,10 +336,10 @@ def encrypt_aes(connection, msg):
             data = msg[i:]
             i = l
         else:
-            cla = 0x10
+            cla = 0x00
             data = msg[i:i+cl]
             i = i + cl
-        apdu = assemble_with_len([cla] + ins_p1_p2, data)
+        apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
         (res,sw1,sw2) = _raw_send_apdu(connection,"Encrypt AES chunk",apdu)
         while sw1 == 0x61:
             apdu = [0x00, 0xC0, 0x00, 0x00, sw2]
