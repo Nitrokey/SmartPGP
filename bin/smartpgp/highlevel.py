@@ -192,7 +192,7 @@ class CardConnectionContext:
         if self.input is None:
             print "No input key file"
             return
-        f = open(self.input, 'r')
+        f = open(self.input, 'rb')
         fstr = f.read()
         f.close()
         (der,_) = der_decoder.decode(fstr)
@@ -232,7 +232,7 @@ class CardConnectionContext:
         if self.input is None:
             print "No input certificate file"
             return
-        f = open(self.input, 'r')
+        f = open(self.input, 'rb')
         cert = f.read()
         cert = [ord(c) for c in cert]
         f.close()
@@ -247,7 +247,7 @@ class CardConnectionContext:
         self.connect()
         (cert,_,_) = get_sm_certificate(self.connection)
         cert = "".join([chr(c) for c in cert])
-        with open(self.output, 'w') as f:
+        with open(self.output, 'wb') as f:
             f.write(cert)
             f.close()
 
@@ -259,7 +259,7 @@ class CardConnectionContext:
             key = [ord(c) for c in key]
             print "Setting key to %d bytes" % len(key), key
         else:
-            with open(self.input, 'r') as f:
+            with open(self.input, 'rb') as f:
                 key = f.read()
                 key = [ord(c) for c in key]
         self.connect()
