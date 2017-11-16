@@ -23,6 +23,7 @@ from os import urandom
 from commands import *
 from pyasn1.codec.der import encoder as der_encoder, decoder as der_decoder
 from pyasn1.type import univ
+from smartcard.util import BinStringToHexList, HexListToBinString
 
 
 class ConnectionFailed(Exception):
@@ -278,7 +279,7 @@ class CardConnectionContext:
         self.connect()
         self.verify_user_pin()
         (data,_,_) = encrypt_aes(self.connection, data)
-        data = "".join([chr(c) for c in data])
+        data = HexListToBinString(data)
         if not data:
             print('Device returned no data. Make sure you have written AES key to it.')
         with open(self.output, 'wb') as f:
