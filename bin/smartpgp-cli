@@ -57,7 +57,7 @@ def read_pin_interactive(name):
 
 def parse_args(ctx):
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", help="The command. Valid commands are: %s" % ', '.join([c for c in VALID_COMMANDS.keys()]))
+    parser.add_argument("command", help="The command. Valid commands are: %s" % ', '.join(sorted([c for c in VALID_COMMANDS.keys()])))
     parser.add_argument("-r", "--reader", type=int,
             help="Select reader index (default: 0)")
     parser.add_argument("-i", "--input", type=str,
