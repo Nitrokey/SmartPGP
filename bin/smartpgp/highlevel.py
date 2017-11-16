@@ -270,8 +270,7 @@ class CardConnectionContext:
             print "No input data file"
             return
         if self.output is None:
-            print "No output data file"
-            return
+            self.output = self.input + '.enc'
         with open(self.input, 'rb') as f:
             data = f.read()
         data = data.center(16, '=')
@@ -356,8 +355,7 @@ class CardConnectionContext:
             print "No input data file"
             return
         if self.output is None:
-            print "No output data file"
-            return
+            self.output = self.input + '.dec'
         with open(self.input, 'rb') as f:
             data = f.read()
         data = [ord(c) for c in data]
