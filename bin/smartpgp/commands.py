@@ -84,7 +84,15 @@ def ascii_encode_pin(pin):
     return [ord(c) for c in pin]
 
 def assemble_with_len(prefix,data):
-    return prefix + [len(data)] + data
+    l = len(data)
+    if l>2050:
+        raise ValueError('Data size too big')
+    if l < 255:
+        return prefix + [l] + data
+
+    b = struct.pack('<I', l)
+    b = BinStringToHexList(b)
+    return prefix + b + data
 
 def asOctets(bs):
     l = len(bs)
