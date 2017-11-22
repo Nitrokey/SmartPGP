@@ -302,10 +302,8 @@ class CardConnectionContext:
     def cmd_aes_test(self):
         from smartcard.util import HexListToBinString, BinStringToHexList
         plaintext = 'AES encryption test'.center(32,'=') * 200
-        # from commands import zero_pad
-        # plaintext_o = zero_pad([ c for c in 'testabcdefgh'*1024 ], 16)
 
-        key_ = urandom(16)
+        key_ = urandom(32)
         key = [ord(c) for c in key_]
 
         self.connect()
