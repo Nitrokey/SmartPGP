@@ -69,6 +69,7 @@ def parse_args(ctx):
             help="Admin PIN (default: 12345678). Use ENV:VARNAME to read from an environment variable")
     group.add_argument("-I", "--interactive", action='store_true',
             help="Ask Admin PIN interactively")
+    parser.add_argument("-v", "--verbose", action='store_true', help='Print debug data')
     args = parser.parse_args()
     # option -r
     ctx.reader_index = args.reader or 0
@@ -90,6 +91,12 @@ def parse_args(ctx):
     ctx.input = args.input
     # option -O
     ctx.output = args.output
+
+    if args.verbose:
+        from smartpgp.commands import log_commands
+        import logging
+        log_commands.setLevel(logging.DEBUG)
+
     return ctx,args
 
 def main():

@@ -1,3 +1,4 @@
 pyscard
 pyasn1
 pycrypto
+tqdm

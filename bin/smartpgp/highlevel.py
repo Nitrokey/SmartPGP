@@ -272,14 +272,21 @@ class CardConnectionContext:
             return
         if self.output is None:
             self.output = self.input + '.enc'
-        with open(self.input, 'rb') as f:
-            data = f.read()
-        data = data.center(16, '=')
-        data = [ord(c) for c in data]
+        if self.input is not '-':
+            with open(self.input, 'rb') as f:
+                data = f.read()
+        else:
+            import sys
+            data = sys.stdin.read()
+            self.output = 'output.enc'
+
         self.connect()
         self.verify_user_pin()
+
+        data = [ord(c) for c in data]
         (data,_,_) = encrypt_aes(self.connection, data)
         data = HexListToBinString(data)
+
         if not data:
             print('Device returned no data. Make sure you have written AES key to it.')
         with open(self.output, 'wb') as f:
@@ -294,8 +301,9 @@ class CardConnectionContext:
 
     def cmd_aes_test(self):
         from smartcard.util import HexListToBinString, BinStringToHexList
-        from smartcard.ATR import ATR
-        plaintext = 'testabcdefgh'.center(16,'=')
+        plaintext = 'AES encryption test'.center(32,'=') * 200
+        # from commands import zero_pad
+        # plaintext_o = zero_pad([ c for c in 'testabcdefgh'*1024 ], 16)
 
         key_ = urandom(16)
         key = [ord(c) for c in key_]
@@ -305,38 +313,43 @@ class CardConnectionContext:
         put_aes_key(self.connection, key)
 
         from Crypto.Cipher import AES
-        from Crypto import Random
         cipher = AES.new(key_)
         data = cipher.encrypt(plaintext)
+        import struct
+        lp = struct.pack('!Q', len(plaintext))
+        data = lp + data
         data = [ord(c) for c in data]
 
         # plaintext = [ ord(c) for c in plaintext ]
         # (data,_,_) = encrypt_aes(self.connection, plaintext)
 
-
-        # self.verify_admin_pin()
         self.verify_user_pin()
         (data,_,_) = decrypt_aes(self.connection, data)
         data = HexListToBinString(data)
-        print repr( (data, plaintext))
-        print repr('')
-        # print AES.block_size
+        print ('{} {}'.format(data[:10], plaintext[:10]))
+        print ('{} {}'.format(len(data), len(plaintext)))
+
+        if len(data) == len(plaintext):
+            for i in range(len(data)):
+                if not data[i] == plaintext[i]:
+                    print ((i, data[i], plaintext[i]))
+                    print (data[i-5:i+5], plaintext[i-5:i+5])
+                    break
+
         assert data == plaintext
 
     def cmd_aes_test2(self):
         from smartcard.util import HexListToBinString, BinStringToHexList
-        from smartcard.ATR import ATR
-        plaintext_o = 'testabcdefgh'.center(16, '=')
 
-        key_ = urandom(16)
+        block_size = 16
+        plaintext_o = 'testabcdefgh'*1024
+
+        key_ = urandom(block_size)
         key = [ord(c) for c in key_]
 
         self.connect()
         self.verify_admin_pin()
         put_aes_key(self.connection, key)
-
-        from Crypto.Cipher import AES
-        from Crypto import Random
 
         plaintext = [ ord(c) for c in plaintext_o ]
         self.verify_user_pin()
@@ -346,9 +359,7 @@ class CardConnectionContext:
         self.verify_user_pin()
         (data, _, _) = decrypt_aes(self.connection, data)
         data = HexListToBinString(data)
-        print repr((data, plaintext_o))
-        print repr('')
-        # print AES.block_size
+        print repr((data[:10], plaintext_o[:10]))
         assert data == plaintext_o
 
     def cmd_decrypt_aes(self):

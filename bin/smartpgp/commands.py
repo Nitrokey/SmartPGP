@@ -17,10 +17,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
+from smartcard.ATR import ATR
 from smartcard.Exceptions import NoCardException
 from smartcard.System import readers
 from smartcard.util import toHexString, BinStringToHexList, HexListToBinString
+
+import logging
+import sys
+
+logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
+log_commands = logging.getLogger('commands')
 
 import struct
 
@@ -119,11 +125,10 @@ def encode_len(data):
     return l
 
 def _raw_send_apdu(connection, text, apdu):
-    print
-    print text
-    print "Sending APDU:", ' '.join('{:02X}'.format(c) for c in apdu)
+    log_commands.debug(text)
+    # log.debug("Sending APDU:", ' '.join('{:02X}'.format(c) for c in apdu))
     (data, sw1, sw2) = connection.transmit(apdu)
-    #print ' '.join('{:02X}'.format(c) for c in data)
+    log_commands.debug(' '.join('{:02X}'.format(c) for c in data))
     codes = {
         (0x69,0x82) : 'Security status not satisfied. PW wrong. PW not checked (command not allowed). Secure messaging incorrect (checksum and/or cryptogram)',
         (0x90,0x00) : 'Success',
@@ -134,7 +139,7 @@ def _raw_send_apdu(connection, text, apdu):
         (0x68,0x84) : 'Command chaining not supported',
     }
 
-    print "Returned: %02X %02X (data len %d) %s" % (sw1, sw2, len(data), codes.get((sw1, sw2), 'Unknown return code'))
+    log_commands.debug("Returned: %02X %02X (data len %d) %s" % (sw1, sw2, len(data), codes.get((sw1, sw2), 'Unknown return code')))
     from smartcard.sw.ISO7816_4ErrorChecker import ISO7816_4ErrorChecker
     errorchecker = ISO7816_4ErrorChecker()
     errorchecker([], sw1, sw2)
@@ -146,7 +151,10 @@ def list_readers():
         try:
             connection = reader.createConnection()
             connection.connect()
-            print(reader, toHexString(connection.getATR()))
+            atr_bytes = connection.getATR()
+            print(reader, toHexString(atr_bytes))
+            atr = ATR(atr_bytes)
+            print(atr.dump())
         except NoCardException:
             print(reader, 'no card inserted')
 
@@ -310,7 +318,7 @@ def get_sm_curve_oid(connection):
     curve = curve[1:]
     if curve[-1] == 0xff:
         curve.pop()
-    #print ' '.join('{:02X}'.format(c) for c in curve)
+    print ' '.join('{:02X}'.format(c) for c in curve)
     # Add DER OID header manually ...
     return '\x06' + struct.pack('B',len(curve)) + curve
 
@@ -334,11 +342,24 @@ def get_info(connection, DO=None, length=16):
 def round_to_multiply_of_ceil(value, m=16):
     return int(value) - int(value) % int(m) + m
 
+def zero_pad(msg, multiply=32):
+    """
+
+    :param msg: str
+    :type multiply: int
+    """
+    l = len(msg)
+    l_rounded = round_to_multiply_of_ceil(l, multiply) - l
+    msg += [0]*l_rounded
+    return msg
+
 def encrypt_aes(connection, msg):
     data_to_return = []
     ins_p1_p2 = [0x2A, 0x86, 0x80]
     i = 0
     cl = 240
+    sw1 = 0
+    sw2 = 0
 
     # write original msg length
     l = len(msg)
@@ -348,28 +369,31 @@ def encrypt_aes(connection, msg):
     data_to_return = lp
 
     # pad with '0's to size being multiply of 16
-    l_rounded = round_to_multiply_of_ceil(l, 16) - l
-    msg += [0]*l_rounded
+    msg = zero_pad(msg, multiply=32)
+    l = len(msg)
 
-    while i < l:
-        if (l - i) <= cl:
-            cla = 0x00
-            data = msg[i:]
-            i = l
-        else:
-            cla = 0x00
-            data = msg[i:i+cl]
-            i = i + cl
-        print "Lenght of data sent: {}".format(len(data))
-        apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
-        (res,sw1,sw2) = _raw_send_apdu(connection,"Encrypt AES chunk",apdu)
-        res = res[1:]
-        print "Lenght of data: {}".format(len(res))
-        data_to_return = data_to_return + res
-        while sw1 == 0x61:
-            apdu = [0x00, 0xC0, 0x00, 0x00, sw2]
-            (nres,sw1,sw2) = _raw_send_apdu(connection,"Receiving encrypted chunk",apdu)
-            data_to_return = data_to_return + nres
+    from tqdm import tqdm
+    with tqdm(total=l) as pbar:
+        while i < l:
+            pbar.update(cl)
+            if (l - i) <= cl:
+                cla = 0x00
+                data = msg[i:]
+                i = l
+            else:
+                cla = 0x00
+                data = msg[i:i+cl]
+                i = i + cl
+            log_commands.debug("Lenght of data sent: {}".format(len(data)))
+            apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
+            (res,sw1,sw2) = _raw_send_apdu(connection,"Encrypt AES chunk",apdu)
+            res = res[1:]
+            log_commands.debug("Lenght of data: {}".format(len(res)))
+            data_to_return = data_to_return + res
+            while sw1 == 0x61:
+                apdu = [0x00, 0xC0, 0x00, 0x00, sw2]
+                (nres,sw1,sw2) = _raw_send_apdu(connection,"Receiving encrypted chunk",apdu)
+                data_to_return = data_to_return + nres
     return (data_to_return,sw1,sw2)
 
 
@@ -381,25 +405,30 @@ def decrypt_aes(connection, msg):
     original_l = struct.unpack('!Q', HexListToBinString(msg[:8]))[0]
     msg = msg[8:]
     l = len(msg)
-    print "Lenght of msg: {}".format(l)
-    while i < l:
-        if (l - i) <= cl:
-            cla = 0x00
-            data = msg[i:]
-            i = l
-        else:
-            cla = 0x00
-            data = msg[i:i+cl]
-            i = i + cl
+    log_commands.debug("Lenght of msg: {}".format(l))
 
-        data = [0x02] + data
-        print "Lenght of data: {}".format(len(data))
-        apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
-        (res,sw1,sw2) = _raw_send_apdu(connection,"Decrypt AES chunk",apdu)
-        data_to_return = data_to_return + res
-        while sw1 == 0x61:
-            apdu = [0x00, 0xC0, 0x00, 0x00, sw2]
-            (nres,sw1,sw2) = _raw_send_apdu(connection,"Receiving decrypted chunk",apdu)
-            data_to_return = data_to_return + nres
+    from tqdm import tqdm
+    with tqdm(total=l) as pbar:
+        while i < l:
+            pbar.update(cl)
+            if (l - i) <= cl:
+                cla = 0x00
+                data = msg[i:]
+                i = l
+            else:
+                cla = 0x00
+                data = msg[i:i+cl]
+                i = i + cl
+
+            data = [0x02] + data
+            log_commands.debug("Length of data: {}".format(len(data)))
+            apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
+            log_commands.debug("apdu {} {}".format(len(apdu), apdu))
+            (res,sw1,sw2) = _raw_send_apdu(connection,"Decrypt AES chunk",apdu)
+            data_to_return = data_to_return + res
+            while sw1 == 0x61:
+                apdu = [0x00, 0xC0, 0x00, 0x00, sw2]
+                (nres,sw1,sw2) = _raw_send_apdu(connection,"Receiving decrypted chunk",apdu)
+                data_to_return = data_to_return + nres
     data_to_return = data_to_return[:original_l] # trim to original size
     return (data_to_return,sw1,sw2)
