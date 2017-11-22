@@ -326,8 +326,8 @@ class CardConnectionContext:
         self.verify_user_pin()
         (data,_,_) = decrypt_aes(self.connection, data)
         data = HexListToBinString(data)
-        print ('{} {}'.format(data[:10], plaintext[:10]))
-        print ('{} {}'.format(len(data), len(plaintext)))
+        print ('{} / {}'.format(data[:32], plaintext[:32]))
+        print ('{} / {}'.format(len(data), len(plaintext)))
 
         if len(data) == len(plaintext):
             for i in range(len(data)):
