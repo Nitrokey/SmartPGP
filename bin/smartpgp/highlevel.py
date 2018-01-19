@@ -310,6 +310,7 @@ class CardConnectionContext:
 
     def cmd_mse_test(self):
         self.connect()
+        self.verify_admin_pin()
         data, _, _ = commands.get_info(self.connection, [0x0, 0x6E], 0)
         data = self.helper_dissect(data)
 
@@ -322,7 +323,7 @@ class CardConnectionContext:
         print('MSE supported (10th byte set to 0x01): ' + str(MSE_supported))
         assert MSE_supported
 
-        # commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.DEC)
+        commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.DEC)
         # commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.AUT)
         # commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.DEC)
         # commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.AUT)

@@ -27,7 +27,7 @@ from smartcard.util import toHexString, BinStringToHexList, HexListToBinString
 import logging
 import sys
 
-logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
+logging.basicConfig(stream=sys.stderr, level=logging.WARNING, format='%(relativeCreated)d %(message)s')
 log_commands = logging.getLogger('commands')
 
 import struct
@@ -128,7 +128,7 @@ def encode_len(data):
 
 def _raw_send_apdu(connection, text, apdu):
     log_commands.debug(text)
-    # log.debug("Sending APDU:", ' '.join('{:02X}'.format(c) for c in apdu))
+    log_commands.debug("Sending APDU: " + ' '.join('{:02X}'.format(c) for c in apdu))
     (data, sw1, sw2) = connection.transmit(apdu)
     data_hexstr = ' '.join('{:02X}'.format(c) for c in data)
     data_hexstr = data_hexstr if data_hexstr else '(empty)'
@@ -451,14 +451,19 @@ class MSEKeyRef(Enum):
 
 
 def set_mse(connection, mse_type, mse_key):
+    """
+
+    :type mse_key: MSEKeyRef
+    :type mse_type: MSEType
+    """
     # from page 69, 7.2.18 MANAGE SECURITY ENVIRONMENT
     # https://gnupg.org/ftp/specs/OpenPGP-smart-card-application-3.3.1.pdf
-    ins_p1_p2 = [0x22, 0x41, mse_type]
+    ins_p1_p2 = [0x22, 0x41, mse_type.value]
     lc = 0x03
-    data = [0x83, 0x01, mse_key]
+    data = [0x83, 0x01, mse_key.value]
 
     apdu = assemble_with_len(ins_p1_p2, data)
-    assert len(apdu) == lc
-    _raw_send_apdu(connection, "MSE, type %s, key %s" % (hex(mse_type), hex(mse_key)), apdu)
+    assert len(apdu) - 4 == lc
+    _raw_send_apdu(connection, "MSE, type %s, key %s" % ( str(mse_type), str(mse_key)), apdu)
 
     return None
