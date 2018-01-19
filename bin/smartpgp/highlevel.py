@@ -310,16 +310,22 @@ class CardConnectionContext:
 
     def cmd_mse_test(self):
         self.connect()
-        # see if MSE is supported
-        # test extended capabilities bytes [10] == 1
-        data, _, _ = commands.get_info(self.connection, 0xC0)
-        print (repr(data))
-        assert data[10] == 1
+        data, _, _ = commands.get_info(self.connection, [0x0, 0x6E], 0)
+        data = self.helper_dissect(data)
 
-        commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.DEC)
-        commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.AUT)
-        commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.DEC)
-        commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.AUT)
+        extended_capabilities_string = data['73']['C0']
+        from functools import partial
+        data_in_bytes = map(partial(int, base=16), extended_capabilities_string.split())
+        MSE_supported = data_in_bytes[0xa - 1] == 1
+
+        print(extended_capabilities_string)
+        print('MSE supported (10th byte set to 0x01): ' + str(MSE_supported))
+        assert MSE_supported
+
+        # commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.DEC)
+        # commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.AUT)
+        # commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.DEC)
+        # commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.AUT)
 
 
     def helper_dissect(self, constr):
@@ -347,12 +353,12 @@ class CardConnectionContext:
                 # FIXME interpret skipped two bytes
                 tag_data = self.helper_dissect(data[i+3:])
             else:
-                first_bin = ''
                 if tag[0] == 0xC0:
-                    first_bin += " (first byte in bin: {})".format(format(tag_data[0], '08b'))
-                tag_data = toHexString(tag_data) + first_bin
+                    first_bin = "First byte in bin: {}".format(format(tag_data[0], '08b'))
+                    d[toHexString(tag)+'-info'] = first_bin
+                tag_data = toHexString(tag_data)
 
-            tag = toHexString(tag) + ' (%s)' % hex(l)
+            tag = toHexString(tag) # + ' (%s)' % hex(l)
             d[tag] = tag_data
             # data = data[1+len+1]
             j += 1
