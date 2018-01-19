@@ -310,7 +310,8 @@ class CardConnectionContext:
 
     def cmd_mse_test(self):
         self.connect()
-        self.verify_admin_pin()
+        self.verify_user_pin()
+
         data, _, _ = commands.get_info(self.connection, [0x0, 0x6E], 0)
         data = self.helper_dissect(data)
 
