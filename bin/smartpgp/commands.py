@@ -27,7 +27,7 @@ from smartcard.util import toHexString, BinStringToHexList, HexListToBinString
 import logging
 import sys
 
-logging.basicConfig(stream=sys.stderr, level=logging.WARNING, format='%(relativeCreated)d %(message)s')
+logging.basicConfig(stream=sys.stderr, level=logging.WARNING, format='%(relativeCreated)d  %(funcName)s  %(message)s')
 log_commands = logging.getLogger('commands')
 
 import struct
@@ -100,6 +100,9 @@ def assemble_with_len(prefix,data):
 
     b = struct.pack('<I', l)
     b = BinStringToHexList(b)
+
+    log_commands.debug('Setting data length {} to {}'.format(l, b))
+
     return prefix + b + data
 
 def asOctets(bs):
@@ -476,22 +479,33 @@ def set_mse(connection, mse_type, mse_key):
     return None
 
 
-def IA_padding_RSA(data, key_len=2048):
+class PaddingRSAType(Enum):
+    INT_AUTH = 0x01
+    PSO_DECIPHER = 0x02
+
+def padding_RSA(data, block_type, key_len=2048):
     """
     N not longer than 40% of the key modulus
+    :type block_type: PaddingRSAType
     :param key_len: RSA key length in bits
     :param data: data to sign
     :return: RSA padded data
     """
     from math import floor
-    Lc = (key_len / 8) * 0.4
+    if block_type == PaddingRSAType.INT_AUTH:
+        Lc = (key_len / 8) * 0.4
+    elif block_type == PaddingRSAType.PSO_DECIPHER:
+        Lc = (key_len / 8)
+    else:
+        raise ValueError()
+
     Lc = int(floor(Lc))
     L = len(data)
     assert L <= Lc
 
     FFs = (Lc - 3 - L) * '\xFF'
     FFs = map(ord, FFs)
-    r = [0x00, 0x01] + FFs + [0x00] + data
+    r = [0x00, block_type.value] + FFs + [0x00] + data
     return r
 
 
@@ -506,9 +520,21 @@ def internal_authenticate(connection, data):
     """
     cla = 0x00
     ins_p1_p2 = [0x88, 0x00, 0x00]
-    data = IA_padding_RSA(data)
+    data = padding_RSA(data, PaddingRSAType.INT_AUTH)
 
     apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
     (data, sw1, sw2) = _raw_send_apdu(connection, "Internal authentication", apdu)
+
+    return data
+
+
+def pso_decipher(connection, data):
+    cla = 0x00
+    ins_p1_p2 = [0x2A, 0x80, 0x86]
+    RSA_padding_indicator = [0x00]
+    data = RSA_padding_indicator + padding_RSA(data, PaddingRSAType.PSO_DECIPHER)
+
+    apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
+    (data, sw1, sw2) = _raw_send_apdu(connection, "PSO Decipher", apdu)
 
     return data

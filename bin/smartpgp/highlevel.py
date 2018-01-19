@@ -324,6 +324,10 @@ class CardConnectionContext:
         print('MSE supported (10th byte set to 0x01): ' + str(MSE_supported))
         assert MSE_supported
 
+        data1 = commands.pso_decipher(self.connection, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0])
+
+
+
         data1 = commands.internal_authenticate(self.connection, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0])
         commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.PSO_DEC)
         data2 = commands.internal_authenticate(self.connection, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0])
