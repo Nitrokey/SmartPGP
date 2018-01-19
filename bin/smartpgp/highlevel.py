@@ -336,20 +336,30 @@ class CardConnectionContext:
             if tag[0] in [0x01, 0x5f, 0x7f]:
                 # tag = data[i:i+1]
                 tag = [ data[i], data[i+1]]
+
             p = i + len(tag)
             l = data[p]
             p += 1
-            i = p + l
             tag_data = data[p:p+l]
 
-            tag = toHexString(tag) + '(%s)' % l
-            tag_data = toHexString(tag_data)
+            # TODO add other constructed tags here as list
+            if tag[0] == 0x73:
+                # FIXME interpret skipped two bytes
+                tag_data = self.helper_dissect(data[i+3:])
+            else:
+                first_bin = ''
+                if tag[0] == 0xC0:
+                    first_bin += " (first byte in bin: {})".format(format(tag_data[0], '08b'))
+                tag_data = toHexString(tag_data) + first_bin
+
+            tag = toHexString(tag) + ' (%s)' % hex(l)
             d[tag] = tag_data
             # data = data[1+len+1]
             j += 1
             if j > 100:
                 print i, tag, d
                 raise RuntimeError('Forever loop')
+            i = p + l
         return d
 
     def cmd_show_info(self):
