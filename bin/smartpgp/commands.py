@@ -449,8 +449,8 @@ class MSEType(Enum):
 
 
 class MSEKeyRef(Enum):
-    DEC = 0x02
-    AUT = 0x03
+    PSO_DEC = 0x02
+    INT_AUT = 0x03
 
 
 def set_mse(connection, mse_type, mse_key):
