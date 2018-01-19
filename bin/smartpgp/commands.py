@@ -163,12 +163,15 @@ def list_readers():
             print(reader, 'no card inserted')
 
 def select_reader(reader_index):
+    log_commands.debug('Listing reader')
     reader_list = readers()
     if not reader_list:
         raise NoCardException
     r = reader_list[reader_index]
+    log_commands.debug('Selecting reader %d' % reader_index)
     conn = r.createConnection()
     conn.connect()
+    log_commands.debug('Connected to %d' % reader_index)
     return conn
 
 def select_applet(connection):
@@ -458,12 +461,15 @@ def set_mse(connection, mse_type, mse_key):
     """
     # from page 69, 7.2.18 MANAGE SECURITY ENVIRONMENT
     # https://gnupg.org/ftp/specs/OpenPGP-smart-card-application-3.3.1.pdf
+    cla = 0x00
     ins_p1_p2 = [0x22, 0x41, mse_type.value]
     lc = 0x03
     data = [0x83, 0x01, mse_key.value]
 
-    apdu = assemble_with_len(ins_p1_p2, data)
-    assert len(apdu) - 4 == lc
+    apdu = assemble_with_len([cla] + ins_p1_p2, data)
+    assert len(apdu) - 5 == lc
+    assert apdu[4] == lc
+
     _raw_send_apdu(connection, "MSE, type %s, key %s" % ( str(mse_type), str(mse_key)), apdu)
 
     return None

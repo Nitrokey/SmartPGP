@@ -324,9 +324,9 @@ class CardConnectionContext:
         assert MSE_supported
 
         commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.DEC)
-        # commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.AUT)
-        # commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.DEC)
-        # commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.AUT)
+        commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.AUT)
+        commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.AUT)
+        commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.DEC)
 
 
     def helper_dissect(self, constr):
@@ -342,7 +342,7 @@ class CardConnectionContext:
                 break
             if tag[0] in [0x01, 0x5f, 0x7f]:
                 # tag = data[i:i+1]
-                tag = [ data[i], data[i+1]]
+                tag = [data[i], data[i+1]]
 
             p = i + len(tag)
             l = data[p]
