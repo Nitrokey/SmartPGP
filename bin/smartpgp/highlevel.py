@@ -323,10 +323,13 @@ class CardConnectionContext:
         print('MSE supported (10th byte set to 0x01): ' + str(MSE_supported))
         assert MSE_supported
 
+        data = commands.internal_authenticate(self.connection, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0] )
+        print (data)
         commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.PSO_DEC)
         commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.INT_AUT)
-        commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.INT_AUT)
-        commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.PSO_DEC)
+
+        # commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.INT_AUT)
+        # commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.PSO_DEC)
 
 
     def helper_dissect(self, constr):

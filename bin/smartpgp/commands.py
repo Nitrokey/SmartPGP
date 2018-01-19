@@ -128,7 +128,8 @@ def encode_len(data):
 
 def _raw_send_apdu(connection, text, apdu):
     log_commands.debug(text)
-    log_commands.debug("Sending APDU: " + ' '.join('{:02X}'.format(c) for c in apdu))
+    # log_commands.debug("Sending APDU: " + ' '.join('{:02X}'.format(c) for c in apdu))
+    log_commands.debug("Sending APDU: " + toHexString(apdu))
     (data, sw1, sw2) = connection.transmit(apdu)
     data_hexstr = ' '.join('{:02X}'.format(c) for c in data)
     data_hexstr = data_hexstr if data_hexstr else '(empty)'
@@ -246,7 +247,7 @@ def generate_sm_key(connection):
     apdu = apdu + [0x00]
     return _raw_send_apdu(connection,"Generate SM key",apdu)
 
-def set_resetting_code(connection, resetting_code): 
+def set_resetting_code(connection, resetting_code):
     apdu = assemble_with_len([0x00, 0xDA, 0x00, 0xD3], ascii_encode_pin(resetting_code))
     _raw_send_apdu(connection,"Define the resetting code (PUK)",apdu)
 
@@ -473,3 +474,44 @@ def set_mse(connection, mse_type, mse_key):
     _raw_send_apdu(connection, "MSE, type %s, key %s" % ( str(mse_type), str(mse_key)), apdu)
 
     return None
+
+
+def IA_padding_RSA(data, key_len=2048):
+    """
+    N not longer than 40% of the key modulus
+    :param key_len: RSA key length in bits
+    :param data: data to sign
+    :return: RSA padded data
+    """
+    from math import floor
+    Lc = (key_len / 8) * 0.4
+    Lc = int(floor(Lc))
+    L = len(data)
+    assert L <= Lc
+
+    FFs = (Lc - 3 - L) * '\xFF'
+    FFs = map(ord, FFs)
+    r = [0x00, 0x01] + FFs + [0x00] + data
+    return r
+
+
+def internal_authenticate(connection, data):
+    """
+    Needs User PIN (82) to be used.
+    ECDSA - hash only
+    RSA - needs to be computed
+    :param connection:
+    :param data: data to sign
+    :return: signed data
+    """
+    cla = 0x00
+    ins_p1_p2 = [0x88, 0x00, 0x00]
+    print(data)
+    data = IA_padding_RSA(data)
+    print(len(data))
+    print(data)
+
+    apdu = assemble_with_len([cla] + ins_p1_p2, data)
+    (data, sw1, sw2) = _raw_send_apdu(connection, "Internal authentication", apdu)
+
+    return data
