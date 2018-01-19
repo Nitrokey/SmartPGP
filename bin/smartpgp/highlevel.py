@@ -18,6 +18,11 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import binascii
+from pprint import pprint
+
+import yaml
+
+import commands
 from os import urandom
 
 from commands import *
@@ -46,6 +51,8 @@ class CardConnectionContext:
         self.connected = False
         self.verified = False
         self.input = None
+        self.arg1 = None
+        self.arg2 = None
 
     def _default_pin_read_function(self, pin_type):
         pin = {'User': self.user_pin,
@@ -74,7 +81,7 @@ class CardConnectionContext:
             self.verified = True
         else:
             raise UserPINFailed
-        
+
     def connect(self):
         if self.connected:
             return
@@ -293,11 +300,87 @@ class CardConnectionContext:
             print('Writing {} bytes'.format(len(data)))
             f.write(data)
 
+    def cmd_set_mse(self):
+        self.connect()
+
+        if self.arg1 is None or self.arg2 is None:
+            print('Wrong arguments provided')
+            return
+        raise NotImplementedError()
+
+    def cmd_mse_test(self):
+        self.connect()
+        # see if MSE is supported
+        # test extended capabilities bytes [10] == 1
+        data, _, _ = commands.get_info(self.connection, 0xC0)
+        print (repr(data))
+        assert data[10] == 1
+
+        commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.DEC)
+        commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.AUT)
+        commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.DEC)
+        commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.AUT)
+
+
+    def helper_dissect(self, constr):
+        # dissect constructed data
+        d = {}
+        i = 0
+        j = 0
+        data = constr
+        while i < len(constr):
+            tag = [data[i]]
+            if tag[0] == 0:
+                d['unrecognized'] = toHexString(data[i:])
+                break
+            if tag[0] in [0x01, 0x5f, 0x7f]:
+                # tag = data[i:i+1]
+                tag = [ data[i], data[i+1]]
+            p = i + len(tag)
+            l = data[p]
+            p += 1
+            i = p + l
+            tag_data = data[p:p+l]
+
+            tag = toHexString(tag) + '(%s)' % l
+            tag_data = toHexString(tag_data)
+            d[tag] = tag_data
+            # data = data[1+len+1]
+            j += 1
+            if j > 100:
+                print i, tag, d
+                raise RuntimeError('Forever loop')
+        return d
+
     def cmd_show_info(self):
         self.connect()
         self.verify_admin_pin()
-        info = get_info(self.connection)
-        print info
+
+        DO = {
+            'Application Related Data': ([0x0, 0x6E], 0),
+            'General feature management (optional)': ([0x7F, 0x74], 3),
+            'Extended length information (ISO 7816-4) with maximum '
+            'number of bytes for command and response': ([0x7F, 0x76], 8),
+            'Historical bytes, Card service data and Card capabilities '
+            ', mandatory': ([0x5F, 0x52], 10),
+
+        }
+        for name, (do, len) in DO.items():
+            val = None
+            try:
+                val = get_info(self.connection, do, len)
+            except:
+                pass
+            print '--', name
+            if val:
+                if len == 0:
+                    print yaml.dump(self.helper_dissect(val[0]), default_flow_style=False)
+                else:
+                    print map(toHexString, [val[0]])
+
+            else:
+                print 'None'
+
 
     def cmd_aes_test(self):
         from smartcard.util import HexListToBinString, BinStringToHexList

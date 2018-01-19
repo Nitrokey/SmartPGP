@@ -17,6 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+from enum import Enum
+
 from smartcard.ATR import ATR
 from smartcard.Exceptions import NoCardException
 from smartcard.System import readers
@@ -128,7 +130,9 @@ def _raw_send_apdu(connection, text, apdu):
     log_commands.debug(text)
     # log.debug("Sending APDU:", ' '.join('{:02X}'.format(c) for c in apdu))
     (data, sw1, sw2) = connection.transmit(apdu)
-    log_commands.debug(' '.join('{:02X}'.format(c) for c in data))
+    data_hexstr = ' '.join('{:02X}'.format(c) for c in data)
+    data_hexstr = data_hexstr if data_hexstr else '(empty)'
+    log_commands.debug('Returned data: ' + data_hexstr)
     codes = {
         (0x69,0x82) : 'Security status not satisfied. PW wrong. PW not checked (command not allowed). Secure messaging incorrect (checksum and/or cryptogram)',
         (0x90,0x00) : 'Success',
@@ -329,14 +333,16 @@ def put_aes_key(connection, key):
     _raw_send_apdu(connection,"Put AES key",apdu)
 
 
-def get_info(connection, DO=None, length=16):
+def get_info(connection, DO=None, length=10):
     if DO is None:
-        DO = [0x00, 0xc0]
-        # DO = [0x5F, 0x52]
-        length = 10
+        # DO = [0xC0, 0x00]
+        DO = [0x5F, 0x52]
+        # DO = [0x7F, 0x74]
+
     command = [0x0, 0xca] + DO + [length]
     apdu = command
-    (data, sw1, sw2) = _raw_send_apdu(connection, "Get info object", apdu)
+    (data, sw1, sw2) = _raw_send_apdu(connection, "Get info/DO object", apdu)
+
     return (data[:-2],sw1,sw2)
 
 def round_to_multiply_of_ceil(value, m=16):
@@ -432,3 +438,27 @@ def decrypt_aes(connection, msg):
                 data_to_return = data_to_return + nres
     data_to_return = data_to_return[:original_l] # trim to original size
     return (data_to_return,sw1,sw2)
+
+
+class MSEType(Enum):
+    Authentication = 0xA4
+    Confidentiality = 0xB8
+
+
+class MSEKeyRef(Enum):
+    DEC = 0x02
+    AUT = 0x03
+
+
+def set_mse(connection, mse_type, mse_key):
+    # from page 69, 7.2.18 MANAGE SECURITY ENVIRONMENT
+    # https://gnupg.org/ftp/specs/OpenPGP-smart-card-application-3.3.1.pdf
+    ins_p1_p2 = [0x22, 0x41, mse_type]
+    lc = 0x03
+    data = [0x83, 0x01, mse_key]
+
+    apdu = assemble_with_len(ins_p1_p2, data)
+    assert len(apdu) == lc
+    _raw_send_apdu(connection, "MSE, type %s, key %s" % (hex(mse_type), hex(mse_key)), apdu)
+
+    return None
