@@ -324,10 +324,16 @@ class CardConnectionContext:
         print('MSE supported (10th byte set to 0x01): ' + str(MSE_supported))
         assert MSE_supported
 
-        data = commands.internal_authenticate(self.connection, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0] )
-        print (data)
+        data1 = commands.internal_authenticate(self.connection, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0])
         commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.PSO_DEC)
+        data2 = commands.internal_authenticate(self.connection, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0])
         commands.set_mse(self.connection, MSEType.Authentication, MSEKeyRef.INT_AUT)
+        data3 = commands.internal_authenticate(self.connection, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0])
+
+        # Test element-wise
+        assert data1 == data3
+        assert data1 != data2
+        print('Test for internal authentication with different keys passed.')
 
         # commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.INT_AUT)
         # commands.set_mse(self.connection, MSEType.Confidentiality, MSEKeyRef.PSO_DEC)

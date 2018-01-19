@@ -506,10 +506,7 @@ def internal_authenticate(connection, data):
     """
     cla = 0x00
     ins_p1_p2 = [0x88, 0x00, 0x00]
-    print(data)
     data = IA_padding_RSA(data)
-    print(len(data))
-    print(data)
 
     apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
     (data, sw1, sw2) = _raw_send_apdu(connection, "Internal authentication", apdu)
