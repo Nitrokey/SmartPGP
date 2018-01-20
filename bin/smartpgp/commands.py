@@ -494,6 +494,7 @@ class PaddingRSAType(Enum):
     INT_AUTH = 0x01
     PSO_DECIPHER = 0x02
 
+
 def padding_RSA(data, block_type, key_len=2048):
     """
     N not longer than 40% of the key modulus
@@ -530,8 +531,8 @@ def padding_RSA(data, block_type, key_len=2048):
 def internal_authenticate(connection, data):
     """
     Needs User PIN (82) to be used.
-    ECDSA - hash only
-    RSA - needs to be computed
+    ECDSA - cryptogram only
+    RSA - needs to be padded
     :param connection:
     :param data: data to sign
     :return: signed data
@@ -547,6 +548,13 @@ def internal_authenticate(connection, data):
 
 
 def pso_decipher(connection, data):
+    """
+    Needs User PIN (82) to be used.
+
+    :param connection:
+    :param data:
+    :return:
+    """
     cla = 0x00
     ins_p1_p2 = [0x2A, 0x80, 0x86]
     RSA_padding_indicator = [0x00]
