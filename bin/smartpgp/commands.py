@@ -510,11 +510,18 @@ def padding_RSA(data, block_type, key_len=2048):
     else:
         raise ValueError()
 
+    # target data field length (also called 'N')
     Lc = int(floor(Lc))
+    # user data field length
     L = len(data)
     assert L <= Lc
 
-    FFs = (Lc - 3 - L) * '\xFF'
+    padding_length = (Lc - 3 - L)
+    if block_type == PaddingRSAType.PSO_DECIPHER:
+        # specification requirement
+        assert padding_length >= 8
+
+    FFs = padding_length * '\xFF'
     FFs = map(ord, FFs)
     r = [0x00, block_type.value] + FFs + [0x00] + data
     return r
