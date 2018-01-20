@@ -92,13 +92,24 @@ def ascii_encode_pin(pin):
     return [ord(c) for c in pin]
 
 def assemble_with_len(prefix,data):
+    """
+    https://gnupg.org/ftp/specs/OpenPGP-smart-card-application-3.3.1.pdf
+    7.2  Commands in Detail, page 43
+    If the card provides extended Lc/Le than the terminal should extend
+    the fields to a length of 2 or 3 bytes for data length >255 (dec.).
+    :param prefix:
+    :param data:
+    :return:
+    """
     l = len(data)
     if l>2050:
         raise ValueError('Data size too big')
     if l < 255:
-        return prefix + [l] + data
-
-    b = struct.pack('<I', l)
+        return prefix + [l] + data # 1 byte unsigned
+    elif 255 < l < 256*256:
+        b = struct.pack('<H', l)  # 2 bytes unsigned
+    else:
+        b = struct.pack('<I', l)
     b = BinStringToHexList(b)
 
     log_commands.debug('Setting data length {} to {}'.format(l, b))
