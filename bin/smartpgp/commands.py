@@ -107,7 +107,8 @@ def assemble_with_len(prefix,data):
     if l < 255:
         return prefix + [l] + data # 1 byte unsigned
     elif 255 < l < 256*256:
-        b = struct.pack('<H', l)  # 2 bytes unsigned
+        b = '\0' + struct.pack('<H', l)  # 3 bytes unsigned
+        # b = struct.pack('<H', l)  # 2 bytes unsigned
     else:
         b = struct.pack('<I', l)
     b = BinStringToHexList(b)
@@ -560,7 +561,7 @@ def pso_decipher(connection, data):
     RSA_padding_indicator = [0x00]
     data = RSA_padding_indicator + padding_RSA(data, PaddingRSAType.PSO_DECIPHER)
 
-    apdu = assemble_with_len([cla] + ins_p1_p2, data) + [0]
+    apdu = assemble_with_len([cla] + ins_p1_p2, data) + [1,0]
     (data, sw1, sw2) = _raw_send_apdu(connection, "PSO Decipher", apdu)
 
     return data

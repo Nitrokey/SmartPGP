@@ -324,7 +324,7 @@ class CardConnectionContext:
         print('MSE supported (10th byte set to 0x01): ' + str(MSE_supported))
         assert MSE_supported
 
-        data1 = commands.pso_decipher(self.connection, range(1,33))
+        data1 = commands.pso_decipher(self.connection, range(1, 33))
 
 
 
